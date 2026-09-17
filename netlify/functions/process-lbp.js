@@ -9,10 +9,8 @@ function getServiceAccount() {
 }
 
 if (!admin.apps.length) {
-  const serviceAccount = getServiceAccount();
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    projectId: serviceAccount.project_id,
+    credential: admin.credential.cert(getServiceAccount()),
   });
 }
 const db = admin.firestore();
@@ -201,10 +199,9 @@ exports.handler = async (event, context) => {
       }
     }
 
-      return respond(200, resumen);
+    return respond(200, resumen);
   } catch (err) {
-    console.error('ERROR COMPLETO:', err);
-    return respond(500, { error: err.message, code: err.code, details: err.details, stack: err.stack });
+    return respond(500, { error: err.message });
   }
 };
 
