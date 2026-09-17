@@ -9,8 +9,10 @@ function getServiceAccount() {
 }
 
 if (!admin.apps.length) {
+  const serviceAccount = getServiceAccount();
   admin.initializeApp({
-    credential: admin.credential.cert(getServiceAccount()),
+    credential: admin.credential.cert(serviceAccount),
+    projectId: serviceAccount.project_id,
   });
 }
 const db = admin.firestore();
