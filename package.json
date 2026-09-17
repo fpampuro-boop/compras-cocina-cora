@@ -1,0 +1,9 @@
+{
+  "name": "compras-cocina-cora",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "firebase-admin": "^12.6.0"
+  }
+}
