@@ -9,8 +9,10 @@ function getServiceAccount() {
 }
 
 if (!admin.apps.length) {
+  const serviceAccount = getServiceAccount();
   admin.initializeApp({
-    credential: admin.credential.cert(getServiceAccount()),
+    credential: admin.credential.cert(serviceAccount),
+    projectId: serviceAccount.project_id,
   });
 }
 const db = admin.firestore();
@@ -75,9 +77,12 @@ exports.handler = async (event, context) => {
     });
     const files = filesRes.data.files || [];
 
+    const MAX_POR_EJECUCION = 3; // subir esto más adelante si migramos a background functions
     const resumen = { procesadas: 0, ya_existian: 0, pendientes_revision: 0, errores: 0, detalle: [] };
 
     for (const file of files) {
+      if (resumen.procesadas >= MAX_POR_EJECUCION) break;
+
       // 3. Saltar si ya lo procesamos antes (idempotencia)
       const yaExiste = await db.collection('facturas_procesadas').doc(file.id).get();
       if (yaExiste.exists) {
@@ -199,9 +204,16 @@ exports.handler = async (event, context) => {
       }
     }
 
+    const restantes = files.length - resumen.procesadas - resumen.ya_existian;
+    resumen.mensaje = restantes > 0
+      ? `Procesadas ${resumen.procesadas}. Quedan ${restantes} facturas nuevas sin procesar — volvé a visitar esta URL para seguir.`
+      : `Procesadas ${resumen.procesadas}. No quedan facturas nuevas.`;
+
     return respond(200, resumen);
   } catch (err) {
-    return respond(500, { error: err.message });
+    console.error('ERROR COMPLETO:', err);
+    console.error('project_id usado:', getServiceAccount().project_id);
+    return respond(500, { error: err.message, code: err.code, details: err.details, stack: err.stack });
   }
 };
 
