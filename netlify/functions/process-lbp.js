@@ -77,7 +77,7 @@ exports.handler = async (event, context) => {
     });
     const files = filesRes.data.files || [];
 
-    const MAX_POR_EJECUCION = 3; // subir esto más adelante si migramos a background functions
+    const MAX_POR_EJECUCION = 1; // bajado a 1 para diagnosticar el timeout
     const resumen = { procesadas: 0, ya_existian: 0, pendientes_revision: 0, errores: 0, detalle: [] };
 
     for (const file of files) {
@@ -91,12 +91,16 @@ exports.handler = async (event, context) => {
       }
 
       try {
+        console.log(`[${file.name}] empezando, t=0ms`);
+        const t0 = Date.now();
+
         // 4. Descargar el PDF como binario
         const fileRes = await drive.files.get(
           { fileId: file.id, alt: 'media' },
           { responseType: 'arraybuffer' }
         );
         const base64Pdf = Buffer.from(fileRes.data).toString('base64');
+        console.log(`[${file.name}] PDF descargado, t=${Date.now() - t0}ms`);
 
         // 5. Mandarlo a la API de Anthropic, como documento (no como texto)
         const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -121,6 +125,7 @@ exports.handler = async (event, context) => {
           }),
         });
 
+        console.log(`[${file.name}] respuesta de Anthropic recibida, t=${Date.now() - t0}ms`);
         const claudeData = await claudeRes.json();
         const textBlock = (claudeData.content || []).find((b) => b.type === 'text');
 
