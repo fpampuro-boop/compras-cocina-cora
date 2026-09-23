@@ -17,6 +17,16 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
+// Algunas respuestas de la API vienen envueltas en un bloque de código markdown
+// (```json ... ``` o ``` ... ```) a pesar de que el prompt pide que no lo haga.
+// Esta función limpia eso antes de intentar convertirlo a JSON.
+function limpiarJson(texto) {
+  let limpio = texto.trim();
+  limpio = limpio.replace(/^```(?:json)?\s*/i, '');
+  limpio = limpio.replace(/```\s*$/i, '');
+  return limpio.trim();
+}
+
 // --- El prompt de extracción que armamos para LBP ---
 
 const LBP_PROMPT = `Sos un extractor de datos de facturas del proveedor LBP (CHIFUAJE SRL / AVM Mayorista).
@@ -145,7 +155,7 @@ exports.handler = async (event, context) => {
 
         let parsed;
         try {
-          parsed = JSON.parse(textBlock.text);
+          parsed = JSON.parse(limpiarJson(textBlock.text));
         } catch (e) {
           await db.collection('facturas_pendientes_revision').add({
             proveedor: 'LBP',
