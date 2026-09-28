@@ -34,14 +34,14 @@ Reglas específicas de este proveedor:
 1. Los números usan formato estadounidense: coma de miles, punto decimal (ej. "1,234.56" = 1234.56).
 2. La factura puede tener DOS fechas distintas: "Fecha de Emisión" y "Fecha de Vencimiento" (o similar). Usá SIEMPRE la Fecha de Emisión como "fecha" — nunca la de vencimiento.
 3. El código de producto puede repetirse entre variantes distintas del mismo corte. Usá código + descripción juntos para identificar el ítem, nunca solo el código.
-4. IMPORTANTE — descuento oculto: SIPE tiene un acuerdo comercial fijo de 5% de descuento sobre los ítems vendidos por peso (kg), pero ese 5% casi nunca aparece impreso como número en la columna de descuento de la factura — el total de la línea YA lo tiene aplicado. Para cualquier ítem cuya unidad sea kg (vendido por peso), poné descuento_pct = 5 aunque la factura no lo muestre explícitamente, de forma que cantidad × precio_unitario × (1 - 5/100) coincida con el total impreso. Si un ítem NO se vende por peso (por unidad/pieza) y no hay ningún descuento visible, descuento_pct = 0.
-5. Para cada línea, detectá si la descripción indica un empaque (CAJA, BOLSA, PAQUETE seguido de un número + unidad). Si es así:
-   - unidad_compra = el tipo de empaque
-   - contenido_por_unidad = el número que acompaña al empaque
-   - contenido_unidad_medida = "kg" o "unidad" según corresponda
-   Si NO hay empaque y se vende por peso, unidad_compra = "kg", contenido_por_unidad = 1, contenido_unidad_medida = "kg".
-   Si se vende por unidad/pieza sin empaque, unidad_compra = "unidad", contenido_por_unidad = 1, contenido_unidad_medida = "unidad".
-6. El PDF puede contener más de una factura concatenada. Devolvé una lista de facturas, no asumas que hay una sola.
+4. CRÍTICO — la tabla de ítems tiene DOS columnas de cantidad separadas: "Unidades" (cantidad de bultos/cajas/piezas) y "Kilos" (peso). Tenés que elegir CUÁL de las dos usar como cantidad_comprada según el valor de "Kilos":
+   - Si "Kilos" es MAYOR A 0 para esa línea: el ítem se vende POR PESO. Usá el valor de la columna "Kilos" (no el de "Unidades") como cantidad_comprada. unidad_compra = "kg", contenido_por_unidad = 1, contenido_unidad_medida = "kg".
+   - Si "Kilos" es 0 (o la columna no tiene valor) para esa línea: el ítem se vende POR UNIDAD/CAJA. Usá el valor de la columna "Unidades" como cantidad_comprada. unidad_compra = el tipo de empaque según la descripción (ej. "caja", "cajón") o "unidad" si no se especifica. contenido_por_unidad = 1, contenido_unidad_medida = "unidad".
+   Ejemplo real: una línea con Unidades=1, Kilos=10.000, Precio Unitario=19909.50, Total=189140.27 → cantidad_comprada debe ser 10 (los kilos), NO 1 (las unidades). Si usás 1, la validación (cantidad × precio) no va a cerrar ni de cerca con el total.
+   OJO: la DESCRIPCIÓN del producto a veces menciona un peso como parte del nombre del envase (ej. "CAJON DE POLLO FADEL X 20KG", "CAJA DE SUPREMA IQF X15KG") — eso es solo el tamaño del paquete, NO significa que la línea se venda por peso. Lo único que determina si una línea se vende por peso es si la columna "Kilos" de ESA línea tiene un valor mayor a 0. Si "Kilos" = 0 para esa línea, se vende por unidad/cajón aunque la descripción mencione "KG" en el nombre.
+5. IMPORTANTE — descuento oculto: SIPE tiene un acuerdo comercial fijo de 5% de descuento sobre los ítems vendidos POR PESO (los de la regla 4 con columna "Kilos" > 0), pero ese 5% casi nunca aparece impreso como número en la columna de descuento de la factura — el total de la línea YA lo tiene aplicado. Para esos ítems, poné descuento_pct = 5 aunque la factura no lo muestre explícitamente, de forma que cantidad × precio_unitario × (1 - 5/100) coincida con el total impreso. Para los ítems vendidos por unidad/caja (columna "Kilos" = 0, aunque la descripción mencione un peso), descuento_pct = 0 salvo que la factura muestre explícitamente otro descuento en esa línea — NUNCA apliques el 5% solo porque la descripción menciona "KG".
+6. Ignorá el descuento global de fin de factura (a veces aparece como "DESCUENTO: $..." o un "%5.00" suelto cerca del saldo) y cualquier "SALDO ANTERIOR" / "NUEVO SALDO" — son de la cuenta corriente del cliente, no de esta factura.
+7. El PDF puede contener más de una factura concatenada. Devolvé una lista de facturas, no asumas que hay una sola.
 
 Devolvé SOLO este JSON, sin texto adicional, sin markdown, sin backticks:
 {
