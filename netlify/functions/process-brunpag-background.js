@@ -80,27 +80,30 @@ exports.handler = async (event, context) => {
     });
     const drive = google.drive({ version: 'v3', auth });
 
-    // 1. Encontrar la carpeta "Brunpag" más reciente (la del mes actual)
+    // 1. Encontrar TODAS las carpetas llamadas "Brunpag" (hay una por cada mes,
+    //    dentro de FC Comprobantes > Nuevos > <Mes> > Brunpag)
     const foldersRes = await drive.files.list({
       q: "name = 'Brunpag' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
       fields: 'files(id, name, createdTime)',
       orderBy: 'createdTime desc',
-      pageSize: 1,
+      pageSize: 100,
     });
 
     if (!foldersRes.data.files.length) {
       await runRef.update({ estado: 'error', error: 'No se encontró ninguna carpeta llamada Brunpag en Drive' });
       return;
     }
-    const folderId = foldersRes.data.files[0].id;
 
-    // 2. Listar los PDFs dentro de esa carpeta
-    const filesRes = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType = 'application/pdf' and trashed = false`,
-      fields: 'files(id, name, modifiedTime)',
-      pageSize: 200,
-    });
-    const files = filesRes.data.files || [];
+    // 2. Listar los PDFs dentro de CADA una de esas carpetas y juntarlos todos
+    let files = [];
+    for (const folder of foldersRes.data.files) {
+      const filesRes = await drive.files.list({
+        q: `'${folder.id}' in parents and mimeType = 'application/pdf' and trashed = false`,
+        fields: 'files(id, name, modifiedTime)',
+        pageSize: 200,
+      });
+      files = files.concat(filesRes.data.files || []);
+    }
 
     const MAX_POR_EJECUCION = 15;
     const resumen = { procesadas: 0, ya_existian: 0, pendientes_revision: 0, errores: 0, detalle: [] };
