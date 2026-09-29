@@ -3,3 +3,12 @@
 
 [functions]
   directory = "netlify/functions"
+
+[functions."process-lbp-background"]
+  schedule = "0 8 * * *"
+
+[functions."process-sipe-background"]
+  schedule = "5 8 * * *"
+
+[functions."process-brunpag-background"]
+  schedule = "10 8 * * *"
