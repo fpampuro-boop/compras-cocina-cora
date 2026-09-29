@@ -50,6 +50,9 @@
   .chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;font-size:.8rem;cursor:pointer;user-select:none}
   .chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
   .search{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:.85rem;min-width:180px}
+  .date-range{display:flex;gap:8px;align-items:center}
+  .date-range input[type=date]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-family:var(--font-mono);font-size:.8rem}
+  .date-range span{color:var(--ink-dim);font-size:.8rem}
 
   section{margin-block:22px}
 
@@ -114,6 +117,14 @@
       </div>
     </div>
     <div class="filter-group">
+      <label>Rango de fechas</label>
+      <div class="date-range">
+        <input type="date" id="dateFrom">
+        <span>a</span>
+        <input type="date" id="dateTo">
+      </div>
+    </div>
+    <div class="filter-group">
       <label>Proveedores</label>
       <div class="chips" id="provChips"></div>
     </div>
@@ -137,7 +148,7 @@
   // Misma origin que la función: no hace falta pedir URL, se pide con ruta relativa.
   var DATA_URL = "/.netlify/functions/dashboard-data";
 
-  var state = { compras: [], generado: null, range: "all", provs: null, search: "", sortKey: "gasto", sortDir: "desc", openKey: null };
+  var state = { compras: [], generado: null, range: "all", customFrom: "", customTo: "", provs: null, search: "", sortKey: "gasto", sortDir: "desc", openKey: null };
 
   var $ = function(sel, root){ return (root||document).querySelector(sel); };
   var $all = function(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); };
@@ -196,6 +207,23 @@
     $all(".chip", $("#rangeChips")).forEach(function(c){ c.classList.remove("on"); });
     chip.classList.add("on");
     state.range = chip.getAttribute("data-range");
+    state.customFrom = ""; state.customTo = "";
+    $("#dateFrom").value = ""; $("#dateTo").value = "";
+    render();
+  });
+
+  $("#dateFrom").addEventListener("change", function(e){
+    state.customFrom = e.target.value;
+    if(state.customFrom || state.customTo){
+      $all(".chip", $("#rangeChips")).forEach(function(c){ c.classList.remove("on"); });
+    }
+    render();
+  });
+  $("#dateTo").addEventListener("change", function(e){
+    state.customTo = e.target.value;
+    if(state.customFrom || state.customTo){
+      $all(".chip", $("#rangeChips")).forEach(function(c){ c.classList.remove("on"); });
+    }
     render();
   });
 
@@ -227,6 +255,7 @@
   }
 
   function rangeStart(){
+    if(state.customFrom) return new Date(state.customFrom+"T00:00:00");
     var now = new Date();
     if(state.range === "30"){ var d=new Date(now); d.setDate(d.getDate()-30); return d; }
     if(state.range === "90"){ var d2=new Date(now); d2.setDate(d2.getDate()-90); return d2; }
@@ -234,14 +263,22 @@
     return null;
   }
 
+  function rangeEnd(){
+    if(state.customTo) return new Date(state.customTo+"T23:59:59");
+    return null;
+  }
+
   function filtered(){
     var start = rangeStart();
+    var end = rangeEnd();
     return state.compras.filter(function(c){
       if(!c.fecha || c.total==null) return false;
       if(state.provs && state.provs.indexOf(c.proveedor) === -1) return false;
-      if(start){
+      if(start || end){
         var d = new Date(c.fecha.length===10 ? c.fecha+"T00:00:00" : c.fecha);
-        if(isNaN(d) || d < start) return false;
+        if(isNaN(d)) return false;
+        if(start && d < start) return false;
+        if(end && d > end) return false;
       }
       if(state.search && !(String(c.descripcion||"").toLowerCase().indexOf(state.search) > -1)) return false;
       return true;
@@ -282,6 +319,7 @@
       g.ultimoPrecio = last ? last.precio_unitario : null;
       g.ultimaFecha = last ? last.fecha : null;
       g.precioAnterior = prev ? prev.precio_unitario : null;
+      g.fechaAnterior = prev ? prev.fecha : null;
       g.variacion = (prev && prev.precio_unitario) ? ((g.ultimoPrecio - prev.precio_unitario) / prev.precio_unitario * 100) : null;
       var mejorUnidad = "u.", max=0;
       Object.keys(g.unidades).forEach(function(u){ if(g.unidades[u]>max){ max=g.unidades[u]; mejorUnidad=u; } });
@@ -313,6 +351,8 @@
 
     var alertas = prodAgg.filter(function(p){ return p.variacion!=null && Math.abs(p.variacion) >= 15; }).length;
 
+    prodAgg.forEach(function(p){ p.pctTotal = totalGasto ? (p.gasto / totalGasto * 100) : 0; });
+
     var html = "";
 
     html += '<section class="kpis">';
@@ -340,14 +380,18 @@
     html += th("Proveedor", "proveedor");
     html += th("Volumen", "cantidad", true);
     html += th("Último precio", "ultimoPrecio", true);
+    html += th("Precio anterior", "precioAnterior", true);
+    html += th("Fecha precio anterior", "fechaAnterior", true);
     html += th("Variación", "variacion", true);
     html += th("Gasto total", "gasto", true);
+    html += th("% sobre el total", "pctTotal", true);
     html += '</tr></thead><tbody>';
 
     var sorted = prodAgg.slice().sort(function(a,b){
       var ka = state.sortKey==="insumo" ? (a.descripcion||"") : (state.sortKey==="proveedor" ? (a.proveedor||"") : a[state.sortKey]);
       var kb = state.sortKey==="insumo" ? (b.descripcion||"") : (state.sortKey==="proveedor" ? (b.proveedor||"") : b[state.sortKey]);
       if(state.sortKey==="variacion"){ ka = ka==null?-Infinity:Math.abs(ka); kb = kb==null?-Infinity:Math.abs(kb); }
+      else if(state.sortKey==="fechaAnterior"){ ka = ka?new Date(ka).getTime():-Infinity; kb = kb?new Date(kb).getTime():-Infinity; }
       if(typeof ka === "string"){ var c = ka.localeCompare(kb); return state.sortDir==="asc"?c:-c; }
       ka = ka==null?-Infinity:ka; kb = kb==null?-Infinity:kb;
       return state.sortDir==="asc" ? (ka-kb) : (kb-ka);
@@ -359,11 +403,14 @@
       html += '<td>'+esc(p.proveedor)+'</td>';
       html += '<td class="num">'+fmtNum.format(p.cantidad)+' '+esc(p.unidad)+'</td>';
       html += '<td class="num">'+(p.ultimoPrecio!=null?fmtMoney.format(p.ultimoPrecio):"—")+'</td>';
+      html += '<td class="num">'+(p.precioAnterior!=null?fmtMoney.format(p.precioAnterior):"—")+'</td>';
+      html += '<td class="num">'+(p.fechaAnterior?fmtDate(p.fechaAnterior):"—")+'</td>';
       html += '<td class="num">'+variacionPill(p.variacion)+'</td>';
       html += '<td class="num">'+fmtMoney.format(p.gasto)+'</td>';
+      html += '<td class="num">'+fmtNum.format(p.pctTotal)+'%</td>';
       html += '</tr>';
       if(state.openKey === p.key){
-        html += '<tr class="detail"><td colspan="6">'+detailRow(p)+'</td></tr>';
+        html += '<tr class="detail"><td colspan="9">'+detailRow(p)+'</td></tr>';
       }
     });
     html += '</tbody></table></div></section>';
