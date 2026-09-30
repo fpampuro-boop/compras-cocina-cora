@@ -100,7 +100,7 @@ exports.handler = async (event, context) => {
       files = files.concat(filesRes.data.files || []);
     }
 
-    const MAX_POR_EJECUCION = 15; // límite de seguridad, no de tiempo (ahora tenemos hasta 15 min)
+    const MAX_POR_EJECUCION = 150; // subido temporalmente para procesar de una el atrasado histórico
     const resumen = { procesadas: 0, ya_existian: 0, pendientes_revision: 0, errores: 0, detalle: [] };
 
     for (const file of files) {
