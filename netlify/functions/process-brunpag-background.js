@@ -46,6 +46,7 @@ Reglas específicas de este proveedor:
    - contenido_unidad_medida = "kg", "lts", o "unidad" según corresponda
    Si NO hay ninguna indicación de tamaño/empaque en la descripción, unidad_compra = "unidad", contenido_por_unidad = 1, contenido_unidad_medida = "unidad".
 10. El PDF puede contener más de una factura distinta concatenada (con números de comprobante diferentes). Devolvé una lista de facturas.
+11. CRÍTICO — autocontrol de lectura de dígitos: en las facturas de Brunpag es común confundir visualmente el dígito "6" con el "5" dentro del precio unitario (ej. leer "52181.73" cuando en realidad dice "62181.73"). Por eso, ANTES de responder, para cada línea verificá: cantidad_comprada × precio_unitario × (1 - descuento_pct/100) ¿da aproximadamente el total de esa línea? Si NO da (la diferencia es grande, tipo un dígito de diferencia), probá cambiar un "5" por un "6" (o un "6" por un "5") en el precio unitario que leíste y recalculá — si con ese cambio la cuenta cierra, usá ese precio corregido en tu respuesta en vez del que leíste originalmente. Hacé esto para cada línea antes de devolver el JSON final.
 
 Devolvé SOLO este JSON, sin texto adicional, sin markdown, sin backticks:
 {
