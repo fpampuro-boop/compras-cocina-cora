@@ -112,7 +112,7 @@
       <div class="chips" id="rangeChips">
         <span class="chip on" data-range="all">Todo</span>
         <span class="chip" data-range="30">Últimos 30 días</span>
-        <span class="chip" data-range="90">Últimos 90 días</span>
+        <span class="chip" data-range="lastmonth">Último mes</span>
         <span class="chip" data-range="month">Este mes</span>
       </div>
     </div>
@@ -258,13 +258,18 @@
     if(state.customFrom) return new Date(state.customFrom+"T00:00:00");
     var now = new Date();
     if(state.range === "30"){ var d=new Date(now); d.setDate(d.getDate()-30); return d; }
-    if(state.range === "90"){ var d2=new Date(now); d2.setDate(d2.getDate()-90); return d2; }
+    if(state.range === "lastmonth"){ return new Date(now.getFullYear(), now.getMonth()-1, 1); }
     if(state.range === "month"){ return new Date(now.getFullYear(), now.getMonth(), 1); }
     return null;
   }
 
   function rangeEnd(){
     if(state.customTo) return new Date(state.customTo+"T23:59:59");
+    if(!state.customFrom && state.range === "lastmonth"){
+      var n = new Date();
+      // día 0 del mes actual = último día del mes anterior
+      return new Date(n.getFullYear(), n.getMonth(), 0, 23, 59, 59);
+    }
     return null;
   }
 
